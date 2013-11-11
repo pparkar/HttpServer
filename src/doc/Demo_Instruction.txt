@@ -1,0 +1,13 @@
+To run the application,
+1)Run 'Server.java' as java application
+>java Server
+
+2)Open the url below in the browser,
+http://localhost:8080
+
+This will render an html page giving you an option to set 'keep-alive' flag for your connection
+Keep looking at the console where server is running to see progress of your connection
+
+3)To 'shutdown' the server, load the following url in browser,
+http://localhost:8080/SHUTDOWN 
+ 
