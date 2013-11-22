@@ -5,9 +5,19 @@ To run the application,
 2)Open the url below in the browser,
 http://localhost:8080
 
-This will render an html page giving you an option to set 'keep-alive' flag for your connection
+This will render an html welcome page, also has some ajax scripting to manage the information that should be sent  to server post submit
+You can select only 1 of the checkbox as below,
+a)keepAlive, which will persist the socket connection to the server
+b)quit, which will close the serverThread specific to that client
+
 Keep looking at the console where server is running to see progress of your connection
 
-3)To 'shutdown' the server, load the following url in browser,
+3)Once you click 'Quit' and submit the form, you will be see the message like below,
+Your request to close the KeepAlive socket connection succeeded!!
+
+4)Try giving 'bad' url and it should give you 404 liek below and direct you welcome page to continue making selection.
+404 Not Found
+
+5)To 'shutdown' the server, load the following url in browser,
 http://localhost:8080/SHUTDOWN 
  

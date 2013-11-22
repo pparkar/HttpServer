@@ -8,49 +8,88 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 
 public class Response {
-    OutputStream output = null;
-    Request request = null;
+    OutputStream out = null;
+    String output = null;
+    String input = null;
 
+    //constant
+    private final String SHUTDOWN = "/SHUTDOWN";
+    
     private enum RequestType {
-        LOAD, SUBMIT, UNKNOWN
+        LOAD, CONTINUE, SUBMIT, CLOSE, UNKNOWN
     };
-
-    public Response(OutputStream output) {
-        this.output = output;
-    }
-
-    public void setRequest(Request request) {
-        this.request = request;
+    
+    public Response(String input, OutputStream out){
+        this.input = input;
+        this.out = out;
+        sendStaticResource();
     }
 
     private RequestType getType(String uri) {
+        if(uri == null)
+            return RequestType.UNKNOWN;
+        
         if (uri.equals("/"))
             return RequestType.LOAD;
         else if (uri.equals("/?keepAlive=on"))
             return RequestType.SUBMIT;
+        else if(uri.equals("Host: localhost:8010"))
+            return RequestType.CONTINUE;
+        else if (uri.equals("/?quit=on"))
+            return RequestType.CLOSE;
+        else if(uri.equals(SHUTDOWN))
+            return RequestType.CLOSE;
         else
             return RequestType.UNKNOWN;
     }
 
-    public void sendStaticResource() throws IOException {
-        System.out.println("Incoming Request===>" + request.getUri());
+    public void sendStaticResource() {
+        System.out.println("Incoming Request===>" + input);
         try {
-            RequestType type = getType(request.getUri());
+            RequestType type = getType(input);
             switch (type) {
             case LOAD:
                 loadWelcomePage();
                 break;
+                
             case SUBMIT:
-                output.write("you hve succesfully submitted request to reuse the sme socket connection for future request".getBytes());
+                output = "<h1>Congratulations, your KeepAlive socket is still in use!!</h1>";
+                output += readWelcomeFile();
+                String headerMessage = "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: text/html\r\n" +
+                        "Content-Length: "+(output.length()-1)+"\r\n"+
+                        "\r\n";
+                out.write(headerMessage.getBytes());
                 break;
+
+            case CONTINUE:
+                output += readWelcomeFile();
+                String headerMessage1 = "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: text/html\r\n" +
+                        "Content-Length: "+(output.length()-1)+"\r\n"+
+                        "\r\n";
+                out.write(headerMessage1.getBytes());
+                break;
+                
+            case CLOSE:
+                output = "<h1>Your request to close the KeepAlive socket connection succeeded!!</h1>";
+                String headerMessage2 = "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: text/html\r\n" +
+                        "Content-Length: "+(output.length()-1)+"\r\n"+
+                        "\r\n";
+                out.write(headerMessage2.getBytes());
+                break;
+                
             default:
                 // error message
+                output = "<h1>404 Not Found</h1>";
+                output += readWelcomeFile();
+                output += "<p>Redirecting to welcome page</p>";
                 String defaultMessage = "HTTP/1.1 400 Bad Request\r\n" +
                         "Content-Type: text/html\r\n" +
-                        "Content-Length: 25\r\n" +
-                        "\r\n" +
-                        "<h1>400 Invalid Request</h1>";
-                output.write(defaultMessage.getBytes());
+                        "Content-Length: "+(output.length()-1)+"\r\n"+
+                        "\r\n";
+                out.write(defaultMessage.getBytes());                        
             }
         } catch (Exception e) {
             System.out.println(e.toString());
@@ -58,25 +97,25 @@ public class Response {
     }
 
     private void loadWelcomePage() {
+        //System.out.println("success in loading welcome page!!");
         try {
+            String fileContent = readWelcomeFile();
+            
             String headerMessage = "HTTP/1.1 200 OK\r\n" +
                     "Content-Type: text/html\r\n" +
-                    "Content-Length: 1000\r\n";
-            // "\r\n" +
-            // "<h1>400 Invalid Request</h1>";
-            output.write(headerMessage.getBytes());
+                    "Content-Length: "+(fileContent.length()-1)+"\r\n"
+                    +"\r\n";
+            out.write(headerMessage.getBytes());            output += fileContent+"\r\n";
 
-            String fileContent = readFile(Response.class, "webapp/welcome.html", true);
-            output.write(fileContent.getBytes());
         } catch (Exception e) {
             e.printStackTrace();
-            try {
-                output.write("Server is down, please try again later!!".getBytes());
-            } catch (IOException e1) {
-                e1.printStackTrace();
-            }
+            output += "Server is down, please try again later!!";
         }
+    }
+    private String readWelcomeFile() throws IOException{
+        return readFile(Response.class, "webapp/welcome.html", true);        
     }
+    
 
     private String readFile(Class<?> srcClass, String filePath, boolean addNewLine) throws IOException {
         ClassLoader classLoader = srcClass.getClassLoader();
@@ -96,7 +135,7 @@ public class Response {
     private void loadErrorPage() {
         try {
             String fileContent = readFile(Response.class, "webapp/error.html", true);
-            output.write(fileContent.getBytes());
+            output += fileContent;
         } catch (Exception e) {
             e.printStackTrace();
         }

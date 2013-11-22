@@ -9,16 +9,26 @@ import java.util.concurrent.TimeUnit;
 /**
  * 
  * @author pparkar
- * Create a client pool with or without socket reuse ability
+ * Create a client pool with http keepAlive supported
  */
 public class ClientPool extends ThreadPoolExecutor{
+    private static final int activeConnection = 2;
+    private static final int maxConnection = 4;
+    private static long timeToLive = 30000;
+    private static TimeUnit timeToLiveUnit = TimeUnit.MILLISECONDS;
+    
     public ClientPool(){
-        super(100, 150, 60000, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
+        super(activeConnection, maxConnection, timeToLive, timeToLiveUnit, new LinkedBlockingQueue<Runnable>());
     }
     
     public ClientFuture submit(Request request, ClientCallback callback){
         Client client = new Client(request, callback);
-        return (ClientFuture)submit(client);
+        if (getPoolSize() == activeConnection && getCorePoolSize() == maxConnection) {
+            System.out.println("Server is busy ...cannot accept any new connection");
+            return null;
+        } else {
+            return (ClientFuture)submit(client);
+        }
     }
     
     @Override
@@ -32,7 +42,7 @@ public class ClientPool extends ThreadPoolExecutor{
         super.beforeExecute(t, r);
         ClientFuture future = (ClientFuture)r;
         Client client = future.getCallable();
-        Response response = client.getResponse();
+        ClientThreadStatus status = client.getStatus();
         
         future.initiateResponse();
     }
@@ -42,7 +52,10 @@ public class ClientPool extends ThreadPoolExecutor{
         super.afterExecute(r, t);
         ClientFuture future = (ClientFuture)r;
         Client client = future.getCallable();
-        Response response = client.getResponse();
+        ClientThreadStatus status = client.getStatus();
+        if(status != null){
+            System.out.println("****Client Thread Status "+status);
+        }
         
         future.endResponse();
     }
